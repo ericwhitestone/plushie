@@ -12,3 +12,9 @@ Ubuntu Dependency Installation:
 	apt-get install python2.7
 	apt-get install sqlite3
 
+
+Installing Plushie Server:
+
+
+Author:
+	Eric Whitestone (eric.whitestone@gmail.com)
