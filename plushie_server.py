@@ -90,7 +90,7 @@ if __name__ == '__main__':
 		sys.exit(2)
 	server_class = BaseHTTPServer.HTTPServer
 	httpd = server_class((HOST_NAME, PORT_NUMBER), PlushieHandler)
-	print time.asctime(), "Server Starts - %s:%s" % (HOST_NAME, PORT_NUMBER)
+	print time.asctime(), "Server Started - %s:%s" % (HOST_NAME, PORT_NUMBER)
 	try:
 		httpd.serve_forever()
 	except KeyboardInterrupt:

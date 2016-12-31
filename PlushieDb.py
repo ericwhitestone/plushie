@@ -13,5 +13,5 @@ class PlushieDb:
 		con = sqlite3.connect(self.dbfile)
 		cur = con.cursor()
 		print (PlushieDb.STMT_BARCODE_BY_VALUE)
-		result = cur.execute(PlushieDb.STMT_BARCODE_BY_VALUE, (bc_value))
-		print (result)
+		cur.execute(PlushieDb.STMT_BARCODE_BY_VALUE, (bc_value))
+	        print cur.fetchone()	
