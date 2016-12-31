@@ -6,8 +6,11 @@ from urlparse import parse_qs
 import os
 import sys
 from PlushieDb import PlushieDb
+from Barcode import Barcode
+from RamsClient import RamsClient
+import json
 
-HOST_NAME = '192.168.1.5'
+HOST_NAME = '0.0.0.0'
 PORT_NUMBER = 8080
 DB_FILE = 'plushie.db'
 QS_PARAM_BARCODE = 'barcode'
@@ -18,8 +21,8 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 		
 	def do_GET(s):
 		parsed_url = urlparse(s.path)
-		if parsed_url.path == '/authorizedPlay':
-			PlushieHandler.get_authorizedPlay(s, parsed_url)
+		if parsed_url.path == '/barcode':
+			PlushieHandler.get_barcode(s, parsed_url)
 		elif parsed_url.path == '/help':
 			PlushieHandler.get_help(s, parsed_url)
 		else:
@@ -42,28 +45,73 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 		return qs_args
 	
 	def put_authorizedPlay(self, parsed_url):
-		qs_args = PlushieHandler.parse_params(self, parsed_url)
-		if qs_args is None:
-			s.send_response(404)
-			return
-		
-	def get_authorizedPlay(self, parsed_url):
+		rams = RamsClient()
 		data_access = PlushieDb(DB_FILE)	
 		qs_args = PlushieHandler.parse_params(self, parsed_url)
-		if qs_args is None: 
-			s.send_response(404)
+		if qs_args is None:
+			self.send_response(404)
+			data_access.close()
+			return
+		scanner_id = qs_args['scannerId']
+		barcode = qs_args['barcode']
+		barcode_record = data_access.retrieveBarcodeByValue(
+			barcode)
+
+		if barcode_record is None:
+			if not rams.isValidBarcode(barcode):
+				#TODO: add to garbage table
+				self.send_response(404)
+				self.wfile.write("Invalid barcode")
+				data_access.close()
+				return
+			pkey = data_access.insert_barcode(barcode)		
+			if pkey is None:
+				self.send_response(500)
+				self.wfile.write("Failed inserting record in db")	
+				data_access.rollback()
+				data_access.close()
+				return
+			barcode_record = data_access.retrieveBarcodeById(pkey)
+
+		if barcode_record is None:
+			self.send_response(500)
+			self.wfile.write("Failed retrieving new barcode")
+			data_access.close()
+			data_access.rollback()
+			return
+		print("Inserting access log for %s" % barcode_record)
+		a_id = data_access.insertAccessLog(str(barcode_record.pkey), 
+			str(scanner_id))
+		data_access.commit()
+		data_access.close()
+		if a_id is not None:
+			self.send_response(200)
+			self.wfile.write(a_id)
+			return
+		self.send_response(500)
+		self.wfile.write("Failed to insert access record")	
+			
+	def get_barcode(self, parsed_url):
+		data_access = PlushieDb(DB_FILE)	
+		qs_args = parse_qs(parsed_url.query)	
+		if QS_PARAM_BARCODE not in qs_args:
+			self.send_response(404)
 			return
 		
 		barcode = qs_args['barcode']
-		scanner_id = qs_args['scannerId']
 		print ( 'received args: %s' % qs_args)
-		barcode_record = data_access.retrieveBarcode(
-		barcode)	
+		barcode_record = (
+			data_access.retrieveBarcodeByValue(barcode))
+		if barcode_record is None:
+			self.send_response(404)
+			self.wfile.write("Barcode is not in local db")
+			return
+				
 		"""Respond to GET"""
 		self.send_response(200)
 		self.send_header("Content-type", "application/json")
 		self.end_headers()
-		self.wfile.write("{status:ok}")
+		self.wfile.write(json.dumps(barcode_record.__dict__))
 
 	def get_help(s, parsed_url):
 		
