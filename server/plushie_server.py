@@ -16,6 +16,10 @@ DB_FILE = 'plushie.db'
 QS_PARAM_BARCODE = 'barcode'
 QS_PARAM_SCANNER_ID = 'scannerId'
 
+class ServerErrorException(Exception):
+	pass
+class NotFoundException(Exception):
+	pass
 class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 	
 		
@@ -31,9 +35,19 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 	def do_PUT(s):
 		parsed_url = urlparse(s.path)
 		if parsed_url.path == '/authorizedPlay':
-			PlushieHandler.put_authorizedPlay(s, parsed_url)
+			try:
+				PlushieHandler.put_authorizedPlay(s, parsed_url)
+			except (NotFoundException) as e:
+				print(e)
+				s.send_response(404)
+				s.wfile.write(e)
+			except (ServerErrorException) as e:
+				print (e)
+				s.send_response(500)
+				s.wfile.write(e)
 		else:
 			s.send_response(404)
+			s.wfile.write("Resource doesn't exist")
 
 	def parse_params(self, parsed_url):
 		''' return dict of the url params, null if invalid '''
@@ -45,51 +59,43 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 		return qs_args
 	
 	def put_authorizedPlay(self, parsed_url):
-		rams = RamsClient()
-		data_access = PlushieDb(DB_FILE)	
-		qs_args = PlushieHandler.parse_params(self, parsed_url)
-		if qs_args is None:
-			self.send_response(404)
-			data_access.close()
-			return
-		scanner_id = qs_args['scannerId']
-		barcode = qs_args['barcode']
-		barcode_record = data_access.retrieveBarcodeByValue(
-			barcode)
+		try:
+			fail_msg = None
+			rams = RamsClient()
+			data_access = PlushieDb(DB_FILE)	
+			qs_args = PlushieHandler.parse_params(self, parsed_url)
+			if qs_args is None:
+				raise NotFoundException("Invalid arguments")
+			scanner_id = qs_args[QS_PARAM_SCANNER_ID][0]
+			barcode = qs_args[QS_PARAM_BARCODE][0]
+			barcode_record = (data_access.retrieveBarcodeByValue(
+				barcode))
 
-		if barcode_record is None:
-			if not rams.isValidBarcode(barcode):
-				#TODO: add to garbage table
-				self.send_response(404)
-				self.wfile.write("Invalid barcode")
-				data_access.close()
-				return
-			pkey = data_access.insert_barcode(barcode)		
-			if pkey is None:
-				self.send_response(500)
-				self.wfile.write("Failed inserting record in db")	
-				data_access.rollback()
-				data_access.close()
-				return
-			barcode_record = data_access.retrieveBarcodeById(pkey)
-
-		if barcode_record is None:
-			self.send_response(500)
-			self.wfile.write("Failed retrieving new barcode")
+			if barcode_record is None:
+				if not rams.isValidBarcode(barcode):
+					#TODO: add to garbage table
+					raise NotFoundException("Invalid barcode")
+				pkey = data_access.insert_barcode(barcode)		
+				if pkey is None:
+					raise ServerErrorException("Failed inserting "
+						"record in db")
+				barcode_record = data_access.retrieveBarcodeById(pkey)
+			if barcode_record is None:
+				raise ServerErrorException("Failed retrieving new barcode")
+			print("Inserting access log for %s" % barcode_record)
+			a_id = data_access.insertAccessLog(barcode_record.pkey, 
+				scanner_id)
+			data_access.commit()
 			data_access.close()
+			if a_id is not None:
+				self.send_response(200)
+				self.wfile.write(a_id)
+				return
+			raise ServerErrorException("Failed to insert access record")	
+		except (Exception) as e:
 			data_access.rollback()
-			return
-		print("Inserting access log for %s" % barcode_record)
-		a_id = data_access.insertAccessLog(str(barcode_record.pkey), 
-			str(scanner_id))
-		data_access.commit()
-		data_access.close()
-		if a_id is not None:
-			self.send_response(200)
-			self.wfile.write(a_id)
-			return
-		self.send_response(500)
-		self.wfile.write("Failed to insert access record")	
+			data_access.close()
+			raise
 			
 	def get_barcode(self, parsed_url):
 		data_access = PlushieDb(DB_FILE)	

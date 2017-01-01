@@ -32,7 +32,7 @@ class PlushieDb:
 
 	def insert_barcode(self, barcodeValue):
 		cur = self.con.cursor()
-		cur.execute(PlushieDb.STMT_INSERT_BARCODE, barcodeValue)
+		cur.execute(PlushieDb.STMT_INSERT_BARCODE, (barcodeValue,))
 		if cur.rowcount != 1:
 			return None
 		return cur.lastrowid 
@@ -40,7 +40,8 @@ class PlushieDb:
 	def retrieveBarcodeById(self, bc_id):
 		barcode = None
 		cur = self.con.cursor()
-		cur.execute(PlushieDb.STMT_BARCODE_BY_ID, (str(bc_id)))
+		print ("Looking up barcode ID: %d" % bc_id)
+		cur.execute(PlushieDb.STMT_BARCODE_BY_ID, (bc_id,))
 	        bc_tuple = cur.fetchone()	
 		if bc_tuple is not None:
 			barcode = Barcode()
@@ -53,7 +54,8 @@ class PlushieDb:
 	def retrieveBarcodeByValue(self, bc_value):
 		barcode = None
 		cur = self.con.cursor()
-		cur.execute(PlushieDb.STMT_BARCODE_BY_VALUE, (bc_value))
+		print ('Looking up barcode value %s' % bc_value)
+		cur.execute(PlushieDb.STMT_BARCODE_BY_VALUE, (bc_value,))
 	        bc_tuple = cur.fetchone()	
 		if bc_tuple is not None:
 			barcode = Barcode()
