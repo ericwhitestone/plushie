@@ -1,0 +1,20 @@
+
+
+Plushie server is a lightweight http server + application that provides a restful API for authenticating barcodes against
+	the MAGFEST uber api, along with providing the added service of authorization of a barcode to be used as
+	a coin for play
+	
+Dependencies:
+	python v2.7
+	sqlite v3
+
+Ubuntu Dependency Installation:
+	apt-get install python2.7
+	apt-get install sqlite3
+
+
+Installing Plushie Server:
+
+
+Author:
+	Eric Whitestone (eric.whitestone@gmail.com)
