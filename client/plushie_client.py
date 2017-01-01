@@ -17,8 +17,11 @@ except RuntimeError:
     print("Error importing RPi.GPIO! Check lib availability and run as root.")
 
 
-
-
+#
+# Var Inits
+# 
+usermessage=["","Booted","Up"]
+usermessagetime=int(time.time())
 
 #
 # PyGame Screen Poop
@@ -88,15 +91,27 @@ def message_display(text, X, Y):
         pygame.display.update()
 
 
+# This is for stuff that gets erased
 def message_display_small(text, X, Y):
         font = pygame.font.Font("font.ttf", 60)
         TextSurf, TextRect = text_objects(text, font)
         TextRect.center = (X, Y)
         scope.screen.blit(TextSurf, TextRect)
         pygame.display.update()
+        
 
 
-
+#
+#
+# Redraw screen, two player text variables.
+# Write last update time to variable
+# that gets wiped if time is too long (to clear status 
+# messages)
+ 
+def redrawscreen():
+        scope.background()
+        message_display(usermessage[1], 640, 540)
+        message_display(usermessage[2], 640, 750)
 
 
 
@@ -146,18 +161,25 @@ def barcodeauth( scanner, barcode ):
 	try:
             r = requests.put('http://192.168.1.69:8080/authorizedPlay', params=payload, timeout=0.100)
         except: 
-            message_display_small('Server Comm Error', 640, 300)
+            print "Server Comm Error"
+	    usermessagetime = int(time.time())
+            usermessage[int(scanner)] = "Server Comm Error"
+            redrawscreen()
 	if r is not None:
 		print(r.url)
 		print(r.status_code)
 		if r.status_code == 200:
 		  print "Status code 200, good to play"
-		  message_display_small('Play added', 640, 300)
+                  usermessagetime = int(time.time())
+                  usermessage[int(scanner)] = "Play enabled!"
+                  redrawscreen()
 		else:
 		  print "Error."
-		  message_display_small('Invalid Barcode', 640, 300)
+                  usermessagetime = int(time.time())
+                  usermessage[int(scanner)] = "Invalid Barcode"
+                  redrawscreen()
 
-
+    # Need to relay http feedback in here
 
 
 
@@ -196,10 +218,7 @@ string1 = ""
 #
 scope = pyscope()
 scope.background()
-message_display('Scan Badge Barcode', 640, 70)
-message_display('To Play', 640, 180)
-message_display('---------------------', 640, 270)
-
+redrawscreen()
 
 
 #
@@ -213,6 +232,15 @@ while True:
    # 
  
    r,w,x = select([devZero, devOne], [], [],1)
+
+   # Blank statuses after X seconds
+   if (usermessagetime + 4) == int(time.time()): 
+      usermessage[1] = ""
+      usermessage[2] = ""
+      redrawscreen()
+      print int(time.time())
+
+
    for dev in r:
 	   char = ""
 	   for event in dev.read():
