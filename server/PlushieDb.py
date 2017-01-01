@@ -10,6 +10,8 @@ class PlushieDb:
 	STMT_INSERT_ACCESS_LOG = ("insert into access_log(barcode_fk, scanner_id)"
 		" values(?,?);")
 	STMT_INSERT_BARCODE =("insert into barcode(barcode_value) values(?);")
+	STMT_UPDATE_FREEPLAYS = ("update barcode set freeplays = ? "
+		"where pkey=?")
 		
 	def __init__(self, dbfile):
 		self.dbfile = dbfile
@@ -32,15 +34,24 @@ class PlushieDb:
 
 	def insert_barcode(self, barcodeValue):
 		cur = self.con.cursor()
-		cur.execute(PlushieDb.STMT_INSERT_BARCODE, barcodeValue)
+		cur.execute(PlushieDb.STMT_INSERT_BARCODE, (barcodeValue,))
 		if cur.rowcount != 1:
 			return None
 		return cur.lastrowid 
-			
+
+	def updateFreeplays(self, pkey, freeplaysValue):
+		cur = self.con.cursor()
+		cur.execute(PlushieDb.STMT_UPDATE_FREEPLAYS, (pkey, 
+			freeplaysValue))
+		if cur.rowcount != 1:
+			return False 
+		return True
+		
 	def retrieveBarcodeById(self, bc_id):
 		barcode = None
 		cur = self.con.cursor()
-		cur.execute(PlushieDb.STMT_BARCODE_BY_ID, (str(bc_id)))
+		print ("Looking up barcode ID: %d" % bc_id)
+		cur.execute(PlushieDb.STMT_BARCODE_BY_ID, (bc_id,))
 	        bc_tuple = cur.fetchone()	
 		if bc_tuple is not None:
 			barcode = Barcode()
@@ -53,7 +64,8 @@ class PlushieDb:
 	def retrieveBarcodeByValue(self, bc_value):
 		barcode = None
 		cur = self.con.cursor()
-		cur.execute(PlushieDb.STMT_BARCODE_BY_VALUE, (bc_value))
+		print ('Looking up barcode value %s' % bc_value)
+		cur.execute(PlushieDb.STMT_BARCODE_BY_VALUE, (bc_value,))
 	        bc_tuple = cur.fetchone()	
 		if bc_tuple is not None:
 			barcode = Barcode()
