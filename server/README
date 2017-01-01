@@ -23,7 +23,13 @@ Status code response
 403 - Unauthorized	: Barcode is temporarily not authorized for play
 
 Installing Plushie Server:
+	Run
+	./create_plushie_db.sh (create schema only) 
+		OR
+	./create_plushie_mock_db.sh (to create db with test data)
 
+Running Plushie Server:
+	python2.7 plushie_server.py
 
 Author:
 	Eric Whitestone (eric.whitestone@gmail.com)
