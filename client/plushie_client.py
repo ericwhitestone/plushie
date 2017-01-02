@@ -225,12 +225,13 @@ keys = "X^1234567890-=XXqwertzuiopXXXXasdfghjklXXXXXyxcvbnmXXXXXXXXXXXXXXXXXXXXX
 shiftkeys = "X^!@#$%^&*()_+XXQWERTYUIOPXXXXASDFGHJKLXXXXXZXCVBNMXXXXXXXXXXXXXXXXXXXXXXX"
 shifton = 0
 #devOne = InputDevice('/dev/input/by-id/usb-WIT_Electron_Company_WIT_122-UFS_V2.03-event-kbd')
-devZero = InputDevice('/dev/input/event0')
-devOne = InputDevice('/dev/input/event1')
 
-string0 = ""
-string1 = ""
+devices = [InputDevice('/dev/input/event0'),
+	InputDevice('/dev/input/event1')]
 
+deviceMap = {}
+for d in devices: 
+	deviceMap[d.fd] = ""
 # 
 # Init display
 #
@@ -249,37 +250,37 @@ while True:
    # Barcode reading loop
    # 
  
-   r,w,x = select([devZero, devOne], [], [], .5)
+   r,w,x = select(devices, [], [], 4)
    # Blank statuses after X seconds
    if (usermessagetime + 3) < int(time.time()): 
-      usermessage[1] = ""
-      usermessage[2] = ""
-      redrawscreen()
+	usermessage[1] = ""
+	usermessage[2] = ""
+	redrawscreen()
 
+   scannerOneBuffer = ""
+   scannerTwoBuffer = ""
 
    for dev in r:
-	   char = ""
+	   myDev = None
 	   for event in dev.read():
 		if event.type==1 and event.value==1:
 			if event.code == 28:
-				if dev.fd == devZero.fd:
-					print ("Dev 1: " + string0)
-					barcodeauth( '1', string0)
-					string0 = ""
-				if dev.fd == devOne.fd:
-					print ("Dev 2: " + string1)
-					barcodeauth( '2', string1)
-					string1 = ""
+				print ("Device list: %s" % devices)
+				print ("Device: %s " % (
+				dev))
+				barcode = deviceMap[dev.fd]
+				scanner_id = deviceMap.keys().index(dev.fd)
+				print ("Barcode read: %s" % barcode)
+				print ("Checking authrorization of scanner_id: %d barcode: %s" %(
+						scanner_id, barcode))
+				#barcodeauth(scanner_id, barcode)
+				deviceMap[dev.fd] = ""
 			elif event.code == 42:
 				shifton = 1 
 			else:
 				if shifton == 1:
-					char += shiftkeys[ event.code ]
+					deviceMap[dev.fd] += shiftkeys[ event.code ]
 					shifton = 0
 				else:	
-					char += keys[ event.code ]
-				if dev.fd == devZero.fd:
-					string0 += char
-				if dev.fd == devOne.fd:
-					string1 += char
+					deviceMap[dev.fd] += keys[ event.code ]
 
