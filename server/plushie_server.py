@@ -62,9 +62,15 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 		return qs_args
 	
 	def put_authorizedPlay(self, parsed_url):
+		'''TODO: break this up, perhaps return a tuple 
+			of (staus_code, msg) so calling function
+			can just write the response. A bit hurried here
+			and re-learning python at the same time as 
+			getting something working   '''
 		try:
 			playAuthorized = False
 			rams = RamsClient()
+			validRams = False
 			data_access = PlushieDb(DB_FILE)	
 			qs_args = PlushieHandler.parse_params(self, parsed_url)
 			if qs_args is None:
@@ -82,13 +88,16 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 				barcode_record = data_access.retrieveBarcodeById(pkey)
 			if barcode_record is None:
 				raise ServerErrorException("Failed retrieving new barcode")
-			if self.requiresFreeplay(data_access, barcode_record): 
+			cooloffPeriod = self.retrieveCooloff(data_access, scanner_id,
+				 barcode_record)
+			if cooloffPeriod:
 				if barcode_record.freeplays > 0:
 					self.useFreeplay(data_access, barcode_record)
 					playAuthorized = True
 			else:
 				playAuthorized = True
-					
+			validRams = rams.isValidBarcode(barcode)	
+			playAuthorize = playAuthorized and validRams
 			a_id = data_access.insertAccessLog(barcode_record.pkey, 
 				scanner_id, playAuthorized)
 			if a_id is None:
@@ -98,25 +107,26 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 			#If everything up to this point was ok, but 
 			#is an invalid barcode, commit the transaction
 			#to store all accesses, but send back a not found
-			if not rams.isValidBarcode(barcode):
+			if not validRams:
 				self.send_response(404)	
 				self.send_header("Content-type", "text/html")
 				self.end_headers()
-				self.wfile.write("Barcode not valid RAMS barcode")
+				self.wfile.write("Barcode not a valid Magfest barcode")
 			elif playAuthorized:
 				self.send_response(200)
 			else:
 				self.send_response(403)
 				self.send_header("Content-type", "text/html")
 				self.end_headers()
-				self.wfile.write("Must wait")
+				self.wfile.write("%d minutes remaining in cooldown period" % 
+					cooloffPeriod)
 		except (Exception) as e:
 			data_access.rollback()
 			data_access.close()
 			raise
 
-	def requiresFreeplay(self, data_access, barcode):
-		return False
+	def retrieveCooloff(self, data_access, scannerId, barcode):
+		return 3
 
 	def useFreeplay(self, data_access, barcode):
 		print("Current freeplays: %d" % barcode.freeplays)
@@ -148,7 +158,7 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 				
 		"""Respond to GET"""
 		self.send_response(200)
-		self.send_header("Content-type", "text/html")
+		self.send_header("Content-type", "application/json")
 		self.end_headers()
 		self.wfile.write(json.dumps(barcode_record.__dict__))
 
