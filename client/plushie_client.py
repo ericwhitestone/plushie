@@ -103,20 +103,13 @@ def text_objects(text, font):
         return textSurface, textSurface.get_rect()
 
 def message_display(text, X, Y):
-        font = pygame.font.Font("font.ttf", 100)
+        font = pygame.font.Font("font.ttf", 37)
         TextSurf, TextRect = text_objects(text, font)
         TextRect.center = (X, Y)
         scope.screen.blit(TextSurf, TextRect)
         pygame.display.update()
 
 
-# This is for stuff that gets erased
-def message_display_small(text, X, Y):
-        font = pygame.font.Font("font.ttf", 60)
-        TextSurf, TextRect = text_objects(text, font)
-        TextRect.center = (X, Y)
-        scope.screen.blit(TextSurf, TextRect)
-        pygame.display.update()
         
 
 
@@ -179,7 +172,7 @@ def barcodeauth( scanner, barcode ):
 	payload = {'barcode': barcode, 'scannerId': '1'}
 	r = None
 	try:
-            r = requests.put('http://192.168.1.69:8080/authorizedPlay', params=payload, timeout=0.100)
+            r = requests.put('http://127.0.0.1:8080/authorizedPlay', params=payload, timeout=0.100)
         except: 
             print "Server Comm Error"
 	    usermessagetime=int(time.time())
@@ -192,6 +185,11 @@ def barcodeauth( scanner, barcode ):
 		  print "Status code 200, good to play"
                   usermessagetime=int(time.time())
                   usermessage[int(scanner)] = "Play enabled!"
+                  redrawscreen()
+		elif r.status_code == 403:
+		  print "Status code 403, ", r.text
+                  usermessagetime=int(time.time())
+                  usermessage[int(scanner)] = r.text
                   redrawscreen()
 		else:
 		  print "Error."
@@ -251,7 +249,7 @@ while True:
    # Barcode reading loop
    # 
  
-   r,w,x = select([devZero, devOne], [], [],1)
+   r,w,x = select([devZero, devOne], [], [], .5)
    # Blank statuses after X seconds
    if (usermessagetime + 3) < int(time.time()): 
       usermessage[1] = ""
@@ -270,6 +268,7 @@ while True:
 					string0 = ""
 				if dev.fd == devOne.fd:
 					print ("Dev 2: " + string1)
+					barcodeauth( '2', string1)
 					string1 = ""
 			elif event.code == 42:
 				shifton = 1 
