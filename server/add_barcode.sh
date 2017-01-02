@@ -15,5 +15,5 @@ if [ $# -ne 2 ]; then
 	exit 2
 fi
 
-sql="insert into barcode(barcode_value, freeplays) values('$1', '$2')";
+sql="insert into barcode(barcode_value, freeplays, added_by_admin) values('$1', '$2', '1')";
 sqlite3 $DB "$sql"
