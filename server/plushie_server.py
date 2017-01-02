@@ -40,14 +40,17 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 			except (NotFoundException) as e:
 				print(e)
 				s.send_response(404)
+				s.send_header("Content-type", "text/html")
+				s.end_headers()
 				s.wfile.write(e)
 			except (ServerErrorException) as e:
 				print (e)
 				s.send_response(500)
+				s.send_header("Content-type", "text/html")
+				s.end_headers()
 				s.wfile.write(e)
 		else:
 			s.send_response(404)
-			s.wfile.write("Resource doesn't exist")
 
 	def parse_params(self, parsed_url):
 		''' return dict of the url params, null if invalid '''
@@ -60,8 +63,7 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 	
 	def put_authorizedPlay(self, parsed_url):
 		try:
-			fail_msg = None
-			cooloffPeriodExempt = False;
+			playAuthorized = False
 			rams = RamsClient()
 			data_access = PlushieDb(DB_FILE)	
 			qs_args = PlushieHandler.parse_params(self, parsed_url)
@@ -80,12 +82,15 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 				barcode_record = data_access.retrieveBarcodeById(pkey)
 			if barcode_record is None:
 				raise ServerErrorException("Failed retrieving new barcode")
-
-			#If there is a freeplay, skip cooloff period 
-			if barcode_record.freeplays > 0:
-				self.useFreeplay(data_access, barcode_record)
+			if self.requiresFreeplay(data_access, barcode_record): 
+				if barcode_record.freeplays > 0:
+					self.useFreeplay(data_access, barcode_record)
+					playAuthorized = True
+			else:
+				playAuthorized = True
+					
 			a_id = data_access.insertAccessLog(barcode_record.pkey, 
-				scanner_id)
+				scanner_id, playAuthorized)
 			if a_id is None:
 				raise ServerErrorException("Failed to insert access record")	
 			data_access.commit()
@@ -95,15 +100,24 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 			#to store all accesses, but send back a not found
 			if not rams.isValidBarcode(barcode):
 				self.send_response(404)	
+				self.send_header("Content-type", "text/html")
+				self.end_headers()
 				self.wfile.write("Barcode not valid RAMS barcode")
-			else:
+			elif playAuthorized:
 				self.send_response(200)
-				self.wfile.write(a_id)
+			else:
+				self.send_response(403)
+				self.send_header("Content-type", "text/html")
+				self.end_headers()
+				self.wfile.write("Must wait")
 		except (Exception) as e:
 			data_access.rollback()
 			data_access.close()
 			raise
-	
+
+	def requiresFreeplay(self, data_access, barcode):
+		return False
+
 	def useFreeplay(self, data_access, barcode):
 		print("Current freeplays: %d" % barcode.freeplays)
 		barcode.freeplays = barcode.freeplays - 1
@@ -134,7 +148,7 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 				
 		"""Respond to GET"""
 		self.send_response(200)
-		self.send_header("Content-type", "application/json")
+		self.send_header("Content-type", "text/html")
 		self.end_headers()
 		self.wfile.write(json.dumps(barcode_record.__dict__))
 

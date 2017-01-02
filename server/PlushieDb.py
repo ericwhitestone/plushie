@@ -7,8 +7,9 @@ class PlushieDb:
 	STMT_BARCODE_BY_VALUE = ("select pkey, barcode_value, "
 	"freeplays, added_by_admin from barcode where barcode_value = ?;")
 
-	STMT_INSERT_ACCESS_LOG = ("insert into access_log(barcode_fk, scanner_id)"
-		" values(?,?);")
+	STMT_INSERT_ACCESS_LOG = ("insert into access_log(barcode_fk, "
+		"scanner_id, authorized)"
+		" values(?,?,?);")
 	STMT_INSERT_BARCODE =("insert into barcode(barcode_value) values(?);")
 	STMT_UPDATE_FREEPLAYS = ("update barcode set freeplays = ? "
 		"where pkey = ?;")
@@ -27,10 +28,10 @@ class PlushieDb:
 		print("Closing connection to DB")
 		self.con.close()
 
-	def insertAccessLog(self, barcodePkey, scannerId):
+	def insertAccessLog(self, barcodePkey, scannerId, authorized):
 		cur = self.con.cursor()
 		cur.execute(PlushieDb.STMT_INSERT_ACCESS_LOG, (barcodePkey,
-			scannerId));
+			scannerId, authorized));
 		if cur.rowcount != 1:
 			return None
 		return cur.lastrowid
