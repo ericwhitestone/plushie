@@ -100,15 +100,20 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 			else:
 				playAuthorized = True
 			validRams = rams.isValidBarcode(barcode)	
+			"""
+				Set the authorized value to true only if it authenticates
+				against rams/uber, and it was previously authorized 
+				based on a local db check for a cooloff period on this
+				scanner id
+			"""	
 			playAuthorize = playAuthorized and validRams
 			a_id = data_access.insertAccessLog(barcode_record.pkey, 
 				scanner_id, playAuthorized)
 			if a_id is None:
-				raise ServerErrorException("Failed to insert access record")	
+				raise ServerErrorException("Failed to insert access record")
+			#At this point, all the record keeping is finished, so commit	
 			data_access.commit()
-			#If everything up to this point was ok, but 
-			#is an invalid barcode, commit the transaction
-			#to store all accesses, but send back a not found
+
 			if not validRams:
 				self.send_response(404)	
 				self.send_header("Content-type", "text/html")
