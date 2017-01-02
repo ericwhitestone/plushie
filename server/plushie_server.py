@@ -8,6 +8,7 @@ import sys
 from PlushieDb import PlushieDb
 from Barcode import Barcode
 from RamsClient import RamsClient
+from datetime import datetime
 import json
 
 HOST_NAME = '0.0.0.0'
@@ -15,6 +16,8 @@ PORT_NUMBER = 8080
 DB_FILE = 'plushie.db'
 QS_PARAM_BARCODE = 'barcode'
 QS_PARAM_SCANNER_ID = 'scannerId'
+COOLOFF_PERIOD_SECONDS = 60*60
+
 
 class ServerErrorException(Exception):
 	pass
@@ -124,9 +127,20 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 			data_access.rollback()
 			data_access.close()
 			raise
-
+		
 	def retrieveCooloff(self, data_access, scannerId, barcode):
-		return 3
+		''' @return seconds left in cooloff period ''' 
+		last = data_access.retrieveLastPlayTime(barcode.pkey,
+			scannerId)
+		print ("Last play time for barcode %s on scanner %s: %s " % (
+			barcode.value, scannerId, last))
+		if last is None:
+			return 0
+		currentTime = datetime.now()
+		difftime = currentTime - datetime.strptime(last,
+			"%Y-%m-%d %H:%M:%S")
+		#cooloffDelta = datetime.timedelta(0,COOLOFF_PERIOD_SECONDS)  
+		return difftime.total_seconds()
 
 	def useFreeplay(self, data_access, barcode):
 		print("Current freeplays: %d" % barcode.freeplays)

@@ -13,6 +13,15 @@ class PlushieDb:
 	STMT_INSERT_BARCODE =("insert into barcode(barcode_value) values(?);")
 	STMT_UPDATE_FREEPLAYS = ("update barcode set freeplays = ? "
 		"where pkey = ?;")
+
+	STMT_RETRIEVE_LASTPLAY = ("select access_log.access_timestamp, "
+		"access_log.scanner_id, access_log.authorized " 
+		"from access_log join "
+		"barcode on access_log.barcode_fk = barcode.pkey "
+		"where barcode.pkey = ? "
+		"and access_log.authorized = 1 "
+		"and access_log.scanner_id = ? order "
+		"by access_timestamp DESC limit 1;")
 		
 	def __init__(self, dbfile):
 		self.dbfile = dbfile
@@ -27,6 +36,16 @@ class PlushieDb:
 	def close(self):
 		print("Closing connection to DB")
 		self.con.close()
+	
+	def retrieveLastPlayTime(self, barcodePkey, scannerId):
+		''' @return datetime of last play for this scanner ''' 
+		cur = self.con.cursor()
+		cur.execute(PlushieDb.STMT_RETRIEVE_LASTPLAY, 
+			(barcodePkey, scannerId))
+		retval = cur.fetchone()
+		if retval is None: 
+			return None
+		return retval[0]
 
 	def insertAccessLog(self, barcodePkey, scannerId, authorized):
 		cur = self.con.cursor()
