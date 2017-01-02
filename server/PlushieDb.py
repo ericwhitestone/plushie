@@ -14,7 +14,8 @@ class PlushieDb:
 	STMT_UPDATE_FREEPLAYS = ("update barcode set freeplays = ? "
 		"where pkey = ?;")
 
-	STMT_RETRIEVE_LASTPLAY = ("select access_log.access_timestamp, "
+	STMT_RETRIEVE_LASTPLAY = ("select "
+		"datetime(access_log.access_timestamp, 'localtime'), "
 		"access_log.scanner_id, access_log.authorized " 
 		"from access_log join "
 		"barcode on access_log.barcode_fk = barcode.pkey "

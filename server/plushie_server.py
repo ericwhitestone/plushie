@@ -91,9 +91,9 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 				barcode_record = data_access.retrieveBarcodeById(pkey)
 			if barcode_record is None:
 				raise ServerErrorException("Failed retrieving new barcode")
-			cooloffPeriod = self.retrieveCooloff(data_access, scanner_id,
+			cooloffPeriodSec = self.retrieveCoolOff(data_access, scanner_id,
 				 barcode_record)
-			if cooloffPeriod:
+			if cooloffPeriodSec:
 				if barcode_record.freeplays > 0:
 					self.useFreeplay(data_access, barcode_record)
 					playAuthorized = True
@@ -106,7 +106,6 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 			if a_id is None:
 				raise ServerErrorException("Failed to insert access record")	
 			data_access.commit()
-			data_access.close()
 			#If everything up to this point was ok, but 
 			#is an invalid barcode, commit the transaction
 			#to store all accesses, but send back a not found
@@ -121,14 +120,15 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 				self.send_response(403)
 				self.send_header("Content-type", "text/html")
 				self.end_headers()
-				self.wfile.write("%d minutes remaining in cooldown period" % 
-					cooloffPeriod)
+				self.wfile.write(("%d minutes %d seconds remaining "
+					"in cooldown period") % ((cooloffPeriodSec/60),
+					(cooloffPeriodSec % 60)))
 		except (Exception) as e:
 			data_access.rollback()
-			data_access.close()
 			raise
-		
-	def retrieveCooloff(self, data_access, scannerId, barcode):
+		finally:
+			data_access.close()	
+	def retrieveCoolOff(self, data_access, scannerId, barcode):
 		''' @return seconds left in cooloff period ''' 
 		last = data_access.retrieveLastPlayTime(barcode.pkey,
 			scannerId)
@@ -137,10 +137,15 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 		if last is None:
 			return 0
 		currentTime = datetime.now()
-		difftime = currentTime - datetime.strptime(last,
+		lastDatetime = datetime.strptime(last,
 			"%Y-%m-%d %H:%M:%S")
-		#cooloffDelta = datetime.timedelta(0,COOLOFF_PERIOD_SECONDS)  
-		return difftime.total_seconds()
+		print ("Current time: %s Lastplay: %s" %(
+			currentTime, lastDatetime))
+		difftime = currentTime - lastDatetime
+		timeRemaining = (COOLOFF_PERIOD_SECONDS 
+			- difftime.total_seconds())
+			 
+		return 0 if timeRemaining <= 0 else timeRemaining
 
 	def useFreeplay(self, data_access, barcode):
 		print("Current freeplays: %d" % barcode.freeplays)
