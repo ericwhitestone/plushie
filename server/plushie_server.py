@@ -80,25 +80,39 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 				raise NotFoundException("Invalid arguments")
 			scanner_id = qs_args[QS_PARAM_SCANNER_ID][0]
 			barcode = qs_args[QS_PARAM_BARCODE][0]
+
+			#Attempt to find the barcode in the database
 			barcode_record = (data_access.retrieveBarcodeByValue(
 				barcode))
 
+			#If this a barcode not seen yet,
+			#add it (even the invalid ones)
 			if barcode_record is None:
 				pkey = data_access.insert_barcode(barcode)		
 				if pkey is None:
 					raise ServerErrorException("Failed inserting "
 						"record in db")
 				barcode_record = data_access.retrieveBarcodeById(pkey)
+
+			#Something went wrong so bail
 			if barcode_record is None:
 				raise ServerErrorException("Failed retrieving new barcode")
+
+			#See if there is a cool off period associated with this
+			#barcode / scannerId combo
 			cooloffPeriodSec = self.retrieveCoolOff(data_access, scanner_id,
 				 barcode_record)
 			if cooloffPeriodSec:
+				#If they have a free play, 
+				#bypass the cooloff period
 				if barcode_record.freeplays > 0:
 					self.useFreeplay(data_access, barcode_record)
 					playAuthorized = True
 			else:
+				#No cooloff period required yet, authorize
 				playAuthorized = True
+			#Reach out to the external DB (rams/uber)
+			#Check if this barcode is valid
 			validRams = rams.isValidBarcode(barcode)	
 			"""
 				Set the authorized value to true only if it authenticates
@@ -107,21 +121,35 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 				scanner id
 			"""	
 			playAuthorize = playAuthorized and validRams
+			#Insert the access attempt into the access log
+			#Records are added regardless of whether the 
+			#barcode is valid, authorized, or unauthorized(cooloff)
 			a_id = data_access.insertAccessLog(barcode_record.pkey, 
 				scanner_id, playAuthorized)
 			if a_id is None:
 				raise ServerErrorException("Failed to insert access record")
 			#At this point, all the record keeping is finished, so commit	
 			data_access.commit()
-
+			
+			#Not found response for invalid barcode
 			if not validRams:
 				self.send_response(404)	
 				self.send_header("Content-type", "text/html")
 				self.end_headers()
 				self.wfile.write("Barcode not a valid Magfest barcode")
+
+			#200 only in the case of valid and authorized to play
 			elif playAuthorized:
 				self.send_response(200)
+
+				
 			else:
+				"""	
+				Unauthorized - occurs only when barcode is valid AND
+				the cool off period has not expired AND
+				there are no freeplays associated with this
+				barcode		
+				"""
 				self.send_response(403)
 				self.send_header("Content-type", "text/html")
 				self.end_headers()
