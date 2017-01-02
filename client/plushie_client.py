@@ -1,6 +1,25 @@
 #!/usr/bin/python
 
 #
+# SUPER BETA APP FOR MAGFEST 2017
+#
+# Reads Linux input buffer for separate barcode scanners (HID devices)
+# Authenticates against server
+# If server says okay, coins up redemption machine for free play
+#    GPIO triggered to coin up machine
+# If server says not okay, echos this out to display at machine
+#
+# Written against Raspbian / Python 2.7 / RPi 3
+
+# Configs still inline in code
+#  -  Scanner ID for authentication URL to separate games
+#  -  URL 
+#  -  Error message delay
+#  -  GPIO Pins
+
+
+
+#
 # Imports
 #
 
@@ -155,6 +174,7 @@ def coinup( player ):
 # Scanner with regards to local machine is to track multiple players for coinup
 
 def barcodeauth( scanner, barcode ):
+        global usermessagetime
 	print "authentication phase"
 	payload = {'barcode': barcode, 'scannerId': '1'}
 	r = None
@@ -162,7 +182,7 @@ def barcodeauth( scanner, barcode ):
             r = requests.put('http://192.168.1.69:8080/authorizedPlay', params=payload, timeout=0.100)
         except: 
             print "Server Comm Error"
-	    usermessagetime = int(time.time())
+	    usermessagetime=int(time.time())
             usermessage[int(scanner)] = "Server Comm Error"
             redrawscreen()
 	if r is not None:
@@ -170,12 +190,12 @@ def barcodeauth( scanner, barcode ):
 		print(r.status_code)
 		if r.status_code == 200:
 		  print "Status code 200, good to play"
-                  usermessagetime = int(time.time())
+                  usermessagetime=int(time.time())
                   usermessage[int(scanner)] = "Play enabled!"
                   redrawscreen()
 		else:
 		  print "Error."
-                  usermessagetime = int(time.time())
+                  usermessagetime=int(time.time())
                   usermessage[int(scanner)] = "Invalid Barcode"
                   redrawscreen()
 
@@ -232,13 +252,11 @@ while True:
    # 
  
    r,w,x = select([devZero, devOne], [], [],1)
-
    # Blank statuses after X seconds
-   if (usermessagetime + 4) == int(time.time()): 
+   if (usermessagetime + 3) < int(time.time()): 
       usermessage[1] = ""
       usermessage[2] = ""
       redrawscreen()
-      print int(time.time())
 
 
    for dev in r:
