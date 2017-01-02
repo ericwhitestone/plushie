@@ -11,17 +11,20 @@ class PlushieDb:
 		" values(?,?);")
 	STMT_INSERT_BARCODE =("insert into barcode(barcode_value) values(?);")
 	STMT_UPDATE_FREEPLAYS = ("update barcode set freeplays = ? "
-		"where pkey=?")
+		"where pkey = ?;")
 		
 	def __init__(self, dbfile):
 		self.dbfile = dbfile
 		self.con = sqlite3.connect(self.dbfile) 
 	
 	def rollback(self):
+		print("Rolling back... ")
 		self.con.rollback()	
 	def commit(self):
+		print("Committing... ")
 		self.con.commit()
 	def close(self):
+		print("Closing connection to DB")
 		self.con.close()
 
 	def insertAccessLog(self, barcodePkey, scannerId):
@@ -41,10 +44,15 @@ class PlushieDb:
 
 	def updateFreeplays(self, pkey, freeplaysValue):
 		cur = self.con.cursor()
-		cur.execute(PlushieDb.STMT_UPDATE_FREEPLAYS, (pkey, 
-			freeplaysValue))
+		cur.execute(PlushieDb.STMT_UPDATE_FREEPLAYS, (freeplaysValue, 
+			pkey))
+		print("Updating barcode pkey %d with freeplays %d" % (
+			pkey, freeplaysValue))
+
 		if cur.rowcount != 1:
+			print "Failed updating"
 			return False 
+		print "Successfully updated"
 		return True
 		
 	def retrieveBarcodeById(self, bc_id):

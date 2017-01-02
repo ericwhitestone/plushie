@@ -84,25 +84,21 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 			#If there is a freeplay, skip cooloff period 
 			if barcode_record.freeplays > 0:
 				self.useFreeplay(data_access, barcode_record)
-				a_id = data_access.insertAccessLog(barcode_record.pkey, 
+			a_id = data_access.insertAccessLog(barcode_record.pkey, 
 				scanner_id)
+			if a_id is None:
+				raise ServerErrorException("Failed to insert access record")	
+			data_access.commit()
+			data_access.close()
 			#If everything up to this point was ok, but 
 			#is an invalid barcode, commit the transaction
 			#to store all accesses, but send back a not found
 			if not rams.isValidBarcode(barcode):
 				self.send_response(404)	
 				self.wfile.write("Barcode not valid RAMS barcode")
-				data_access.commit()
-				data_access.close()
-
-			if a_id is None:
-				raise ServerErrorException("Failed to insert access record")	
-			
-			self.send_response(200)
-			self.wfile.write(a_id)
-			data_access.commit()
-			data_access.close()
-
+			else:
+				self.send_response(200)
+				self.wfile.write(a_id)
 		except (Exception) as e:
 			data_access.rollback()
 			data_access.close()
@@ -111,8 +107,9 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 	def useFreeplay(self, data_access, barcode):
 		print("Current freeplays: %d" % barcode.freeplays)
 		barcode.freeplays = barcode.freeplays - 1
-		if not data_access.updateFreeplays(barcode.pkey,
-			barcode.freeplays):
+		update_success = data_access.updateFreeplays(barcode.pkey,
+			barcode.freeplays)
+		if update_success is not True:
 			raise ServerErrorException("Failed updating freeplays")
 		print(("Using freeplay for %s, "
 			"freeplays remaining: %d" % (
