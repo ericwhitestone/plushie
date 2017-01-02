@@ -122,8 +122,8 @@ def message_display(text, X, Y):
  
 def redrawscreen():
         scope.background()
-        message_display(usermessage[1], 640, 540)
-        message_display(usermessage[2], 640, 750)
+        message_display(usermessage[0], 640, 540)
+        message_display(usermessage[1], 640, 750)
 
 
 
@@ -172,9 +172,9 @@ def barcodeauth( scanner, barcode ):
 	payload = {'barcode': barcode, 'scannerId': '1'}
 	r = None
 	try:
-            r = requests.put('http://127.0.0.1:8080/authorizedPlay', params=payload, timeout=0.100)
-        except: 
-            print "Server Comm Error"
+            r = requests.put('http://127.0.0.1:8080/authorizedPlay', params=payload, timeout=2)
+        except Exception as e: 
+            print ("Server Comm Error: %s" % e)
 	    usermessagetime=int(time.time())
             usermessage[int(scanner)] = "Server Comm Error"
             redrawscreen()
@@ -265,15 +265,11 @@ while True:
 	   for event in dev.read():
 		if event.type==1 and event.value==1:
 			if event.code == 28:
-				print ("Device list: %s" % devices)
-				print ("Device: %s " % (
-				dev))
 				barcode = deviceMap[dev.fd]
 				scanner_id = deviceMap.keys().index(dev.fd)
-				print ("Barcode read: %s" % barcode)
 				print ("Checking authrorization of scanner_id: %d barcode: %s" %(
 						scanner_id, barcode))
-				#barcodeauth(scanner_id, barcode)
+				barcodeauth(scanner_id, barcode)
 				deviceMap[dev.fd] = ""
 			elif event.code == 42:
 				shifton = 1 
