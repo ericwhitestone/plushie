@@ -40,6 +40,13 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 		if parsed_url.path == '/authorizedPlay':
 			try:
 				PlushieHandler.put_authorizedPlay(s, parsed_url)
+			except UnicodeDecodeError as e:
+				print(e)
+				s.send_response(404)
+				s.send_header("Content-type", "text/html")
+				s.end_headers()
+				s.wfile.write("Invalid barcode format")
+
 			except (NotFoundException) as e:
 				print(e)
 				s.send_response(404)
@@ -80,7 +87,8 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 				raise NotFoundException("Invalid arguments")
 			scanner_id = qs_args[QS_PARAM_SCANNER_ID][0]
 			barcode = qs_args[QS_PARAM_BARCODE][0]
-
+			barcode = barcode.decode('ascii')	
+			scanner_id = scanner_id.decode('ascii')	
 			#Attempt to find the barcode in the database
 			barcode_record = (data_access.retrieveBarcodeByValue(
 				barcode))
