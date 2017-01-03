@@ -29,7 +29,7 @@ import os
 import pygame
 import random
 import requests
-
+from ScannerBuffer import ScannerBuffer
 try:
     import RPi.GPIO as GPIO
 except RuntimeError:
@@ -218,20 +218,19 @@ def barcodeauth( scanner, barcode ):
 # Barcode Scanner Conversion Table 
 #
 
-from evdev import InputDevice
+from evdev import InputDevice, categorize, ecodes
 from select import select
 
 keys = "X^1234567890-=XXqwertzuiopXXXXasdfghjklXXXXXyxcvbnmXXXXXXXXXXXXXXXXXXXXXXX"
 shiftkeys = "X^!@#$%^&*()_+XXQWERTYUIOPXXXXASDFGHJKLXXXXXZXCVBNMXXXXXXXXXXXXXXXXXXXXXXX"
-shifton = 0
 #devOne = InputDevice('/dev/input/by-id/usb-WIT_Electron_Company_WIT_122-UFS_V2.03-event-kbd')
 
 devices = [InputDevice('/dev/input/event0'),
 	InputDevice('/dev/input/event1')]
 
-deviceMap = {}
+scannerMap = {}
 for d in devices: 
-	deviceMap[d.fd] = ""
+	scannerMap[d.fd] = ScannerBuffer()
 # 
 # Init display
 #
@@ -257,26 +256,27 @@ while True:
 	usermessage[2] = ""
 	redrawscreen()
 
-   scannerOneBuffer = ""
-   scannerTwoBuffer = ""
 
    for dev in r:
-	   myDev = None
 	   for event in dev.read():
-		if event.type==1 and event.value==1:
-			if event.code == 28:
-				barcode = deviceMap[dev.fd]
-				scanner_id = deviceMap.keys().index(dev.fd)
+		if  event.value == 0 and (event.type == 1 or event.code == ecodes.KEY_ENTER ):
+			scanner = scannerMap[dev.fd]
+			if scanner is None:
+				print ("Device does not exist in map - fd: %d" % dev.fd)
+				continue
+			if event.code == ecodes.KEY_ENTER:
+				barcode = scanner.scannerBuffer
+				scanner_id = scannerMap.keys().index(dev.fd)
 				print ("Checking authrorization of scanner_id: %d barcode: %s" %(
 						scanner_id, barcode))
 				barcodeauth(scanner_id, barcode)
-				deviceMap[dev.fd] = ""
+				scanner.reset()
 			elif event.code == 42:
-				shifton = 1 
+				scanner.shiftOn = True
 			else:
-				if shifton == 1:
-					deviceMap[dev.fd] += shiftkeys[ event.code ]
-					shifton = 0
+				if scanner.shiftOn:
+					scanner.scannerBuffer += shiftkeys[ event.code ]
+					scanner.shiftOn = False 
 				else:	
-					deviceMap[dev.fd] += keys[ event.code ]
+					scanner.scannerBuffer += keys[ event.code ]
 
