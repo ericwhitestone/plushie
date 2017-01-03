@@ -120,8 +120,14 @@ class PlushieHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 				#No cooloff period required yet, authorize
 				playAuthorized = True
 			#Reach out to the external DB (rams/uber)
-			#Check if this barcode is valid
-			validRams = rams.isValidBarcode(barcode)	
+			#Check if this barcode is valid if it wasn't
+			#added by an admin
+			if not barcode_record.addedByAdmin:
+				validRams = rams.isValidBarcode(barcode_record.value)	
+			else:
+				print("Skipping rams authorization, "
+					"%s added by admin" % barcode_record.value )
+				validRams = True
 			"""
 				Set the authorized value to true only if it authenticates
 				against rams/uber, and it was previously authorized 
