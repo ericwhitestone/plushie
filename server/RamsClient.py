@@ -1,6 +1,6 @@
 from rpctools.jsonrpc import ServerProxy
 
-BASE_URL = "https://super2017.uber.magfest.org:4444"
+BASE_URL = "https://super2017.uber.magfest.org:4444/jsonrpc"
 
 # the client certificate .crt provided to you by an administrator
 your_client_cert_crt = "rams_client.crt"
@@ -29,8 +29,12 @@ class RamsClient(object):
 			print ("The following occured attempting to authenticate barcode: %s "
 				"against the rams database: %s" % (barcode, e)) 
 		if record is None:
-			print ("Rams auth currently being bypassed: Modify RamsClient.py "
-				"and set proper parameters")	
-			''' Return False here when wiring in ''' 
+			return False
+		else:
+			print ("Received record from rams: %s" % record)
+			return True
+			#print ("Rams auth currently being bypassed: Modify RamsClient.py "
+			#	"and set proper parameters")	
+			#''' Return False here when wiring in ''' 
 
 		return True
